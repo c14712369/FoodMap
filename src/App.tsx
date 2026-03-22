@@ -24,6 +24,19 @@ const typeConfig: Record<string, { icon: any, color: string, bg: string }> = {
   '預設': { icon: Info, color: 'text-blue-500', bg: 'bg-blue-500/20' }
 };
 
+// 地圖樣式 (Dark Mode)
+const mapStyles = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+];
+
 // 內部組件：處理地圖控制邏輯
 const MapController = ({ userLocation, initialLocateDone, setInitialLocateDone }: { userLocation: {lat: number, lng: number} | null, initialLocateDone: boolean, setInitialLocateDone: (val: boolean) => void }) => {
   const map = useMap();
@@ -49,27 +62,17 @@ const App = () => {
   const [activeType, setActiveType] = useState<PlaceType | '全部'>('全部');
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
-  // 1. 獲取資料 (直接存取 Google Apps Script)
+  // 1. 獲取資料
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log('Direct fetching from:', APPS_SCRIPT_URL);
-        
-        // 直接存取，不透過代理，不加自訂 Header
         const response = await fetch(APPS_SCRIPT_URL, {
           method: 'GET',
           redirect: 'follow'
         });
-
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
         const data = await response.json();
-        
-        if (data.error) {
-          console.error('Apps Script error:', data.error);
-          return;
-        }
-
+        if (data.error) return;
         const validPlaces = (Array.isArray(data) ? data : [])
           .filter(p => p.name && p.lat && p.lng)
           .map(p => ({
@@ -79,7 +82,6 @@ const App = () => {
             rating: p.rating ? parseFloat(p.rating) : 0,
             reviews: p.reviews ? parseInt(p.reviews) : 0
           }));
-        
         setPlaces(validPlaces);
       } catch (err) {
         console.error('Fetch error:', err);
@@ -121,6 +123,7 @@ const App = () => {
           defaultZoom={15}
           mapId="FOODMAP_MAIN"
           disableDefaultUI={true}
+          styles={mapStyles}
           onClick={() => setIsBottomSheetOpen(false)}
           style={{ width: '100%', height: '100%' }}
         >
