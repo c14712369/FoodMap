@@ -49,18 +49,26 @@ const App = () => {
   const [activeType, setActiveType] = useState<PlaceType | '全部'>('全部');
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
-  // 1. 獲取資料 (使用 allorigins 代理，解決 Vercel 上的 CORS 問題)
+  // 1. 獲取資料 (直接存取 Google Apps Script)
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(APPS_SCRIPT_URL)}`;
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error(`Proxy error! status: ${response.status}`);
+        console.log('Direct fetching from:', APPS_SCRIPT_URL);
         
-        const wrapper = await response.json();
-        const data = JSON.parse(wrapper.contents);
+        // 直接存取，不透過代理，不加自訂 Header
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'GET',
+          redirect: 'follow'
+        });
+
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
-        if (data.error) return;
+        const data = await response.json();
+        
+        if (data.error) {
+          console.error('Apps Script error:', data.error);
+          return;
+        }
 
         const validPlaces = (Array.isArray(data) ? data : [])
           .filter(p => p.name && p.lat && p.lng)
