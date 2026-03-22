@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@theme {
+  --font-inter: "Inter", sans-serif;
+  --font-geist: "Geist", sans-serif;
+  --color-brand-indigo: oklch(0.6 0.25 260);
+  --color-brand-violet: oklch(0.55 0.25 285);
+}
+
+:root {
+  font-family: var(--font-inter);
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  background-color: #09090b; /* zinc-950 */
+  color: rgba(255, 255, 255, 0.87);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
+
+/* 玻璃效果封裝 */
+.glass {
+  @apply backdrop-blur-xl bg-zinc-900/60 border border-white/10 shadow-2xl;
+}
+
+.glass-heavy {
+  @apply backdrop-blur-2xl bg-zinc-900/80 border-t border-white/10 shadow-[0_-20px_50px_-10px_rgba(0,0,0,0.8)];
+}
+
+.glass-light {
+  @apply bg-white/5 hover:bg-white/10 transition-colors;
+}
+
+.font-plus {
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+/* 捲軸樣式優化 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
