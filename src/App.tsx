@@ -11,6 +11,7 @@ import type { Place, PlaceType } from './types'
 
 // 設定環境變數
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID;
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
 
 const typeConfig: Record<string, { icon: any, color: string, bg: string }> = {
@@ -93,6 +94,7 @@ const App = () => {
     <div className="fixed inset-0 w-full h-full bg-zinc-950 overflow-hidden font-inter">
       <APIProvider apiKey={GOOGLE_API_KEY}>
         <Map
+          mapId={GOOGLE_MAP_ID}
           defaultCenter={{ lat: 25.0330, lng: 121.5654 }}
           defaultZoom={15}
           disableDefaultUI={true}
