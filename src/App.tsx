@@ -2,17 +2,16 @@ import { useState, useEffect, useMemo } from 'react'
 import { 
   APIProvider, 
   Map, 
-  AdvancedMarker,
+  Marker,
   useMap
 } from '@vis.gl/react-google-maps'
-import { Navigation, Search, Star, Coffee, Utensils, Dessert, Palette, MapPin, Tent, ShoppingBag, MessageSquare, Info, X, LocateFixed } from 'lucide-react'
+import { Navigation, Search, Star, Coffee, Utensils, Dessert, Palette, MapPin, Tent, ShoppingBag, MessageSquare, X, LocateFixed } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Place, PlaceType } from './types'
 
 // 設定環境變數 (讀取自 .env)
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
-const MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'bc8e0a6e8df866ed'; // 提供一個預設的公共 ID 作為 fallback
 
 // 類型與圖示顏色映射
 const typeConfig: Record<string, { icon: any, color: string, bg: string }> = {
@@ -22,10 +21,10 @@ const typeConfig: Record<string, { icon: any, color: string, bg: string }> = {
   '藝術': { icon: Palette, color: 'text-purple-500', bg: 'bg-purple-500/20' },
   '景點': { icon: Tent, color: 'text-emerald-500', bg: 'bg-emerald-500/20' },
   '夜市': { icon: MapPin, color: 'text-red-500', bg: 'bg-red-500/20' },
-  '預設': { icon: Info, color: 'text-blue-500', bg: 'bg-blue-500/20' }
+  '預設': { icon: MapPin, color: 'text-blue-500', bg: 'bg-blue-500/20' }
 };
 
-// 地圖樣式 (Dark Mode)
+// 地圖樣式 (Dark Mode - 標準模式可用)
 const mapStyles = [
   { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
@@ -38,10 +37,8 @@ const mapStyles = [
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
 ];
 
-// 內部組件：處理地圖控制邏輯
-const MapController = ({ userLocation, initialLocateDone, setInitialLocateDone }: { userLocation: {lat: number, lng: number} | null, initialLocateDone: boolean, setInitialLocateDone: (val: boolean) => void }) => {
+const MapController = ({ userLocation, initialLocateDone, setInitialLocateDone }: any) => {
   const map = useMap();
-
   useEffect(() => {
     if (map && userLocation && !initialLocateDone) {
       map.panTo(userLocation);
@@ -49,7 +46,6 @@ const MapController = ({ userLocation, initialLocateDone, setInitialLocateDone }
       setInitialLocateDone(true);
     }
   }, [map, userLocation, initialLocateDone, setInitialLocateDone]);
-
   return null;
 };
 
@@ -63,15 +59,10 @@ const App = () => {
   const [activeType, setActiveType] = useState<PlaceType | '全部'>('全部');
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
-  // 1. 獲取資料
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch(APPS_SCRIPT_URL, {
-          method: 'GET',
-          redirect: 'follow'
-        });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const response = await fetch(APPS_SCRIPT_URL, { method: 'GET', redirect: 'follow' });
         const data = await response.json();
         if (data.error) return;
         const validPlaces = (Array.isArray(data) ? data : [])
@@ -93,20 +84,16 @@ const App = () => {
     fetchData();
   }, []);
 
-  // 2. 獲取定位
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.watchPosition(
-        (pos) => {
-          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        },
-        (err) => console.warn('Location error:', err),
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => console.warn(err),
         { enableHighAccuracy: true }
       );
     }
   }, []);
 
-  // 3. 過濾邏輯
   const filteredPlaces = useMemo(() => {
     return places.filter(p => {
       const matchType = activeType === '全部' || p.type?.trim() === activeType;
@@ -122,53 +109,45 @@ const App = () => {
         <Map
           defaultCenter={{ lat: 25.0330, lng: 121.5654 }}
           defaultZoom={15}
-          mapId={MAP_ID}
           disableDefaultUI={true}
+          styles={mapStyles}
           onClick={() => setIsBottomSheetOpen(false)}
           style={{ width: '100%', height: '100%' }}
         >
-          <MapController 
-            userLocation={userLocation} 
-            initialLocateDone={initialLocateDone} 
-            setInitialLocateDone={setInitialLocateDone} 
-          />
+          <MapController userLocation={userLocation} initialLocateDone={initialLocateDone} setInitialLocateDone={setInitialLocateDone} />
 
-          {/* 使用者位置 */}
+          {/* 使用者標記 (標準版) */}
           {userLocation && (
-            <AdvancedMarker position={userLocation} title="我的位置">
-              <div className="relative flex items-center justify-center">
-                <div className="absolute w-8 h-8 bg-indigo-500/30 rounded-full animate-ping" />
-                <div className="relative w-4 h-4 bg-indigo-500 rounded-full border-2 border-white shadow-xl" />
-              </div>
-            </AdvancedMarker>
+            <Marker 
+              position={userLocation} 
+              icon={{
+                path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+                fillColor: '#6366f1',
+                fillOpacity: 1,
+                strokeWeight: 2,
+                strokeColor: '#ffffff',
+                scale: 1.5,
+              }}
+            />
           )}
 
-          {/* 餐廳標記 */}
-          {filteredPlaces.map(p => {
-            const cleanType = p.type?.trim() || '預設';
-            const config = typeConfig[cleanType] || typeConfig['預設'];
-            const Icon = config.icon;
-            return (
-              <AdvancedMarker
-                key={p.place_id}
-                position={{ lat: p.lat, lng: p.lng }}
-                onClick={() => {
-                  setSelectedPlace(p);
-                  setIsBottomSheetOpen(true);
-                }}
-              >
-                <motion.div 
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  whileHover={{ scale: 1.2, zIndex: 50 }}
-                  whileTap={{ scale: 0.8 }}
-                  className={`p-1.5 rounded-xl shadow-lg border border-white/20 backdrop-blur-md ${config.bg} flex items-center justify-center cursor-pointer transition-colors duration-200 hover:bg-white/20`}
-                >
-                  <Icon className={`w-4 h-4 ${config.color} drop-shadow-sm`} />
-                </motion.div>
-              </AdvancedMarker>
-            );
-          })}
+          {/* 餐廳標記 (標準版) */}
+          {filteredPlaces.map(p => (
+            <Marker
+              key={p.place_id}
+              position={{ lat: p.lat, lng: p.lng }}
+              onClick={() => {
+                setSelectedPlace(p);
+                setIsBottomSheetOpen(true);
+              }}
+              label={{
+                text: p.name.charAt(0),
+                color: 'white',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}
+            />
+          ))}
         </Map>
 
         {/* 頂部搜尋與分類 */}
@@ -176,10 +155,8 @@ const App = () => {
           <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="glass rounded-2xl flex items-center px-4 py-3.5 gap-3">
             <Search className="w-5 h-5 text-zinc-400" />
             <input 
-              type="text" 
-              placeholder="想去哪裡探索？"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              type="text" placeholder="想去哪裡探索？"
+              value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500 text-base"
             />
             {loading && <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />}
@@ -191,7 +168,7 @@ const App = () => {
                 key={type}
                 onClick={() => setActiveType(type as any)}
                 className={`px-5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-300 border ${
-                  activeType === type ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-500/40' : 'glass text-zinc-400 border-white/5 hover:bg-white/5'
+                  activeType === type ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-500/40' : 'glass text-zinc-400 border-white/5'
                 }`}
               >
                 {type}
@@ -200,15 +177,10 @@ const App = () => {
           </div>
         </div>
 
-        {/* 浮動功能鈕 */}
-        <div className="absolute bottom-40 right-4 flex flex-col gap-3 z-10">
-          <button 
-            onClick={() => {
-              if (userLocation) setInitialLocateDone(false);
-            }}
-            className="w-12 h-12 glass rounded-2xl flex items-center justify-center text-white active:scale-90 transition-transform shadow-xl"
-          >
-            <LocateFixed className="w-6 h-6 text-indigo-400" />
+        {/* 定位鈕 */}
+        <div className="absolute bottom-40 right-4 z-10">
+          <button onClick={() => setInitialLocateDone(false)} className="w-12 h-12 glass rounded-2xl flex items-center justify-center text-indigo-400 active:scale-90 transition-transform shadow-xl">
+            <LocateFixed className="w-6 h-6" />
           </button>
         </div>
 
@@ -218,9 +190,7 @@ const App = () => {
             <>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsBottomSheetOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-20" />
               <motion.div
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
+                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
                 transition={{ type: 'spring', damping: 25, stiffness: 220 }}
                 className="absolute bottom-0 inset-x-0 glass-heavy rounded-t-[32px] z-30 pb-safe border-t border-white/10"
               >
@@ -232,7 +202,6 @@ const App = () => {
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase ${(typeConfig[selectedPlace.type?.trim()] || typeConfig['預設']).bg} ${(typeConfig[selectedPlace.type?.trim()] || typeConfig['預設']).color}`}>
                           {selectedPlace.type}
                         </span>
-                        {selectedPlace.cuisine && <span className="text-zinc-500 text-[10px] font-medium italic">#{selectedPlace.cuisine}</span>}
                       </div>
                       <h2 className="text-2xl font-bold text-white font-plus leading-tight mb-1">{selectedPlace.name}</h2>
                       <div className="flex items-center gap-3">
@@ -246,26 +215,15 @@ const App = () => {
                         </div>
                       </div>
                     </div>
-                    <button onClick={() => setIsBottomSheetOpen(false)} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
-                      <X className="w-5 h-5" />
-                    </button>
+                    <button onClick={() => setIsBottomSheetOpen(false)} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-zinc-400"><X className="w-5 h-5" /></button>
                   </div>
                   <div className="flex items-start gap-2 mb-8 p-3.5 rounded-2xl bg-white/5 border border-white/5">
                     <MapPin className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
                     <p className="text-zinc-300 text-sm leading-relaxed">{selectedPlace.address}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <a 
-                      href={selectedPlace.url} target="_blank" rel="noreferrer"
-                      className="flex items-center justify-center gap-2.5 bg-indigo-600 hover:bg-indigo-500 text-white h-14 rounded-2xl font-bold transition-all active:scale-95 shadow-xl shadow-indigo-600/25"
-                    >
-                      <Navigation className="w-5 h-5" />
-                      立即導航
-                    </a>
-                    <button className="flex items-center justify-center gap-2.5 glass-light text-white h-14 rounded-2xl font-bold active:scale-95 border border-white/10">
-                      <ShoppingBag className="w-5 h-5" />
-                      儲存地點
-                    </button>
+                    <a href={selectedPlace.url} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2.5 bg-indigo-600 text-white h-14 rounded-2xl font-bold shadow-xl shadow-indigo-600/25">立即導航</a>
+                    <button className="flex items-center justify-center gap-2.5 glass-light text-white h-14 rounded-2xl font-bold border border-white/10">儲存地點</button>
                   </div>
                 </div>
               </motion.div>
