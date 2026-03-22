@@ -49,15 +49,19 @@ const App = () => {
   const [activeType, setActiveType] = useState<PlaceType | '全部'>('全部');
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
-  // 1. 獲取資料
+  // 1. 獲取資料 (使用 allorigins 代理，解決 Vercel 上的 CORS 問題)
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(APPS_SCRIPT_URL)}`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(APPS_SCRIPT_URL)}`;
         const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
+        if (!response.ok) throw new Error(`Proxy error! status: ${response.status}`);
+        
+        const wrapper = await response.json();
+        const data = JSON.parse(wrapper.contents);
+        
         if (data.error) return;
+
         const validPlaces = (Array.isArray(data) ? data : [])
           .filter(p => p.name && p.lat && p.lng)
           .map(p => ({
@@ -67,6 +71,7 @@ const App = () => {
             rating: p.rating ? parseFloat(p.rating) : 0,
             reviews: p.reviews ? parseInt(p.reviews) : 0
           }));
+        
         setPlaces(validPlaces);
       } catch (err) {
         console.error('Fetch error:', err);
@@ -93,7 +98,7 @@ const App = () => {
   // 3. 過濾邏輯
   const filteredPlaces = useMemo(() => {
     return places.filter(p => {
-      const matchType = activeType === '全部' || p.type === activeType;
+      const matchType = activeType === '全部' || p.type?.trim() === activeType;
       const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           p.address.toLowerCase().includes(searchQuery.toLowerCase());
       return matchType && matchSearch;
@@ -129,7 +134,6 @@ const App = () => {
 
           {/* 餐廳標記 */}
           {filteredPlaces.map(p => {
-            // 修正：去除可能的空格並確保完全匹配
             const cleanType = p.type?.trim() || '預設';
             const config = typeConfig[cleanType] || typeConfig['預設'];
             const Icon = config.icon;
@@ -189,9 +193,7 @@ const App = () => {
         <div className="absolute bottom-40 right-4 flex flex-col gap-3 z-10">
           <button 
             onClick={() => {
-              if (userLocation) {
-                setInitialLocateDone(false); // 重置狀態讓 MapController 重新 panTo
-              }
+              if (userLocation) setInitialLocateDone(false);
             }}
             className="w-12 h-12 glass rounded-2xl flex items-center justify-center text-white active:scale-90 transition-transform shadow-xl"
           >
@@ -216,7 +218,7 @@ const App = () => {
                   <div className="flex justify-between items-start gap-4 mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase ${(typeConfig[selectedPlace.type] || typeConfig['預設']).bg} ${(typeConfig[selectedPlace.type] || typeConfig['預設']).color}`}>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase ${(typeConfig[selectedPlace.type?.trim()] || typeConfig['預設']).bg} ${(typeConfig[selectedPlace.type?.trim()] || typeConfig['預設']).color}`}>
                           {selectedPlace.type}
                         </span>
                         {selectedPlace.cuisine && <span className="text-zinc-500 text-[10px] font-medium italic">#{selectedPlace.cuisine}</span>}
