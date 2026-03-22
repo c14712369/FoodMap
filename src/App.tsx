@@ -124,7 +124,6 @@ const App = () => {
           defaultZoom={15}
           mapId={MAP_ID}
           disableDefaultUI={true}
-          styles={mapStyles}
           onClick={() => setIsBottomSheetOpen(false)}
           style={{ width: '100%', height: '100%' }}
         >
