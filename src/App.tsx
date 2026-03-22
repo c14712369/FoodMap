@@ -12,6 +12,7 @@ import type { Place, PlaceType } from './types'
 // 設定環境變數 (讀取自 .env)
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
+const MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'bc8e0a6e8df866ed'; // 提供一個預設的公共 ID 作為 fallback
 
 // 類型與圖示顏色映射
 const typeConfig: Record<string, { icon: any, color: string, bg: string }> = {
@@ -121,7 +122,7 @@ const App = () => {
         <Map
           defaultCenter={{ lat: 25.0330, lng: 121.5654 }}
           defaultZoom={15}
-          mapId="FOODMAP_MAIN"
+          mapId={MAP_ID}
           disableDefaultUI={true}
           styles={mapStyles}
           onClick={() => setIsBottomSheetOpen(false)}
