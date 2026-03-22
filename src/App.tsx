@@ -9,11 +9,10 @@ import { Navigation, Search, Star, Coffee, Utensils, Dessert, Palette, MapPin, T
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Place, PlaceType } from './types'
 
-// 設定環境變數 (讀取自 .env)
+// 設定環境變數
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
 
-// 類型與圖示顏色映射
 const typeConfig: Record<string, { icon: any, color: string, bg: string }> = {
   '餐廳': { icon: Utensils, color: 'text-orange-500', bg: 'bg-orange-500/20' },
   '咖啡廳': { icon: Coffee, color: 'text-amber-600', bg: 'bg-amber-600/20' },
@@ -23,19 +22,6 @@ const typeConfig: Record<string, { icon: any, color: string, bg: string }> = {
   '夜市': { icon: MapPin, color: 'text-red-500', bg: 'bg-red-500/20' },
   '預設': { icon: MapPin, color: 'text-blue-500', bg: 'bg-blue-500/20' }
 };
-
-// 地圖樣式 (Dark Mode - 標準模式可用)
-const mapStyles = [
-  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
-];
 
 const MapController = ({ userLocation, initialLocateDone, setInitialLocateDone }: any) => {
   const map = useMap();
@@ -104,34 +90,21 @@ const App = () => {
   }, [places, activeType, searchQuery]);
 
   return (
-    <div className="w-full h-screen bg-zinc-950 overflow-hidden relative font-inter">
+    <div className="fixed inset-0 w-full h-full bg-zinc-950 overflow-hidden font-inter">
       <APIProvider apiKey={GOOGLE_API_KEY}>
         <Map
           defaultCenter={{ lat: 25.0330, lng: 121.5654 }}
           defaultZoom={15}
           disableDefaultUI={true}
-          styles={mapStyles}
           onClick={() => setIsBottomSheetOpen(false)}
-          style={{ width: '100%', height: '100%' }}
+          className="w-full h-full"
         >
           <MapController userLocation={userLocation} initialLocateDone={initialLocateDone} setInitialLocateDone={setInitialLocateDone} />
 
-          {/* 使用者標記 (標準版) */}
           {userLocation && (
-            <Marker 
-              position={userLocation} 
-              icon={{
-                path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
-                fillColor: '#6366f1',
-                fillOpacity: 1,
-                strokeWeight: 2,
-                strokeColor: '#ffffff',
-                scale: 1.5,
-              }}
-            />
+            <Marker position={userLocation} />
           )}
 
-          {/* 餐廳標記 (標準版) */}
           {filteredPlaces.map(p => (
             <Marker
               key={p.place_id}
@@ -139,12 +112,6 @@ const App = () => {
               onClick={() => {
                 setSelectedPlace(p);
                 setIsBottomSheetOpen(true);
-              }}
-              label={{
-                text: p.name.charAt(0),
-                color: 'white',
-                fontSize: '12px',
-                fontWeight: 'bold'
               }}
             />
           ))}
@@ -155,7 +122,7 @@ const App = () => {
           <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="glass rounded-2xl flex items-center px-4 py-3.5 gap-3">
             <Search className="w-5 h-5 text-zinc-400" />
             <input 
-              type="text" placeholder="想去哪裡探索？"
+              type="text" placeholder="探索週邊美食..."
               value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500 text-base"
             />
@@ -168,7 +135,7 @@ const App = () => {
                 key={type}
                 onClick={() => setActiveType(type as any)}
                 className={`px-5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-300 border ${
-                  activeType === type ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-500/40' : 'glass text-zinc-400 border-white/5'
+                  activeType === type ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : 'glass text-zinc-400 border-white/5'
                 }`}
               >
                 {type}
@@ -179,7 +146,7 @@ const App = () => {
 
         {/* 定位鈕 */}
         <div className="absolute bottom-40 right-4 z-10">
-          <button onClick={() => setInitialLocateDone(false)} className="w-12 h-12 glass rounded-2xl flex items-center justify-center text-indigo-400 active:scale-90 transition-transform shadow-xl">
+          <button onClick={() => setInitialLocateDone(false)} className="w-12 h-12 glass rounded-2xl flex items-center justify-center text-indigo-400 shadow-xl">
             <LocateFixed className="w-6 h-6" />
           </button>
         </div>
@@ -222,7 +189,7 @@ const App = () => {
                     <p className="text-zinc-300 text-sm leading-relaxed">{selectedPlace.address}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <a href={selectedPlace.url} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2.5 bg-indigo-600 text-white h-14 rounded-2xl font-bold shadow-xl shadow-indigo-600/25">立即導航</a>
+                    <a href={selectedPlace.url} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2.5 bg-indigo-600 text-white h-14 rounded-2xl font-bold shadow-xl">立即導航</a>
                     <button className="flex items-center justify-center gap-2.5 glass-light text-white h-14 rounded-2xl font-bold border border-white/10">儲存地點</button>
                   </div>
                 </div>
