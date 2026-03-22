@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
-import { 
-  APIProvider, 
-  Map, 
-  Marker,
+import {
+  APIProvider,
+  Map,
+  AdvancedMarker,
   useMap
 } from '@vis.gl/react-google-maps'
 import { Navigation, Search, Star, Coffee, Utensils, Dessert, Palette, MapPin, Tent, ShoppingBag, MessageSquare, X, LocateFixed } from 'lucide-react'
@@ -22,6 +22,40 @@ const typeConfig: Record<string, { icon: any, color: string, bg: string }> = {
   '景點': { icon: Tent, color: 'text-emerald-500', bg: 'bg-emerald-500/20' },
   '夜市': { icon: MapPin, color: 'text-red-500', bg: 'bg-red-500/20' },
   '預設': { icon: MapPin, color: 'text-blue-500', bg: 'bg-blue-500/20' }
+};
+
+const categoryColors: Record<string, string> = {
+  '餐廳': '#f97316',
+  '咖啡廳': '#d97706',
+  '甜點': '#ec4899',
+  '藝術': '#a855f7',
+  '景點': '#10b981',
+  '夜市': '#ef4444',
+  '預設': '#6366f1',
+};
+
+const CategoryMarker = ({ type }: { type: string }) => {
+  const config = typeConfig[type?.trim()] || typeConfig['預設'];
+  const Icon = config.icon;
+  const color = categoryColors[type?.trim()] || categoryColors['預設'];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: '50%',
+        backgroundColor: color, border: '2.5px solid white',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+      }}>
+        <Icon size={17} color="white" strokeWidth={2.5} />
+      </div>
+      <div style={{
+        width: 0, height: 0, marginTop: -1,
+        borderLeft: '5px solid transparent',
+        borderRight: '5px solid transparent',
+        borderTop: `7px solid ${color}`,
+      }} />
+    </div>
+  );
 };
 
 const MapController = ({ userLocation, initialLocateDone, setInitialLocateDone }: any) => {
@@ -104,18 +138,26 @@ const App = () => {
           <MapController userLocation={userLocation} initialLocateDone={initialLocateDone} setInitialLocateDone={setInitialLocateDone} />
 
           {userLocation && (
-            <Marker position={userLocation} />
+            <AdvancedMarker position={userLocation}>
+              <div style={{
+                width: 16, height: 16, borderRadius: '50%',
+                backgroundColor: '#3b82f6', border: '3px solid white',
+                boxShadow: '0 0 0 3px rgba(59,130,246,0.35)',
+              }} />
+            </AdvancedMarker>
           )}
 
           {filteredPlaces.map(p => (
-            <Marker
+            <AdvancedMarker
               key={p.place_id}
               position={{ lat: p.lat, lng: p.lng }}
               onClick={() => {
                 setSelectedPlace(p);
                 setIsBottomSheetOpen(true);
               }}
-            />
+            >
+              <CategoryMarker type={p.type} />
+            </AdvancedMarker>
           ))}
         </Map>
 
