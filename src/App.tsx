@@ -3,7 +3,7 @@ import {
   APIProvider,
   Map,
   AdvancedMarker,
-  useMap
+  useMap,
 } from '@vis.gl/react-google-maps'
 import { Navigation, Search, Star, Coffee, Utensils, Dessert, Palette, MapPin, Tent, ShoppingBag, MessageSquare, X, LocateFixed } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -13,6 +13,7 @@ import type { Place, PlaceType } from './types'
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const GOOGLE_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID;
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
+
 
 const typeConfig: Record<string, { icon: any, color: string, bg: string }> = {
   '餐廳': { icon: Utensils, color: 'text-orange-500', bg: 'bg-orange-500/20' },
@@ -132,7 +133,6 @@ const App = () => {
           defaultCenter={{ lat: 25.0330, lng: 121.5654 }}
           defaultZoom={15}
           disableDefaultUI={true}
-          onClick={() => setIsBottomSheetOpen(false)}
           className="w-full h-full"
         >
           <MapController userLocation={userLocation} initialLocateDone={initialLocateDone} setInitialLocateDone={setInitialLocateDone} />
@@ -162,7 +162,7 @@ const App = () => {
         </Map>
 
         {/* 頂部搜尋與分類 */}
-        <div className="absolute top-4 inset-x-4 z-10 flex flex-col gap-3">
+        <div className="absolute top-4 inset-x-4 z-40 flex flex-col gap-3">
           <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="glass rounded-2xl flex items-center px-4 py-3.5 gap-3">
             <Search className="w-5 h-5 text-zinc-400" />
             <input 
@@ -189,7 +189,7 @@ const App = () => {
         </div>
 
         {/* 定位鈕 */}
-        <div className="absolute bottom-40 right-4 z-10">
+        <div className="absolute bottom-40 right-4 z-40">
           <button onClick={() => setInitialLocateDone(false)} className="w-12 h-12 glass rounded-2xl flex items-center justify-center text-indigo-400 shadow-xl">
             <LocateFixed className="w-6 h-6" />
           </button>
