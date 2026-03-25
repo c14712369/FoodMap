@@ -1,6 +1,6 @@
 // Google Apps Script: 負責處理 FoodBatch 試算表同步與 KML 雲端上傳
-const SECRET = "foodbatch_secret_2026"; 
-const SPREADSHEET_ID = "1_g9TvYtwyC3MAuvgtzDyYglXsec_DZczJ8OSgt49jsc"; // 👈 已填入你的 ID
+const SECRET = "YOUR_APPS_SCRIPT_SECRET"; // 請在 Google Apps Script 編輯器中填入實際值，勿提交至 Git
+const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID"; // 請在 Google Apps Script 編輯器中填入實際值，勿提交至 Git
 
 function doGet(e) {
   try {
