@@ -98,7 +98,7 @@ const App = () => {
           }));
         setPlaces(validPlaces);
       } catch (err) {
-        console.error('Fetch error:', err);
+        console.error('[FoodMap] Fetch error:', err);
       } finally {
         setLoading(false);
       }
@@ -147,18 +147,27 @@ const App = () => {
             </AdvancedMarker>
           )}
 
-          {filteredPlaces.map(p => (
-            <AdvancedMarker
-              key={p.place_id}
-              position={{ lat: p.lat, lng: p.lng }}
-              onClick={() => {
-                setSelectedPlace(p);
-                setIsBottomSheetOpen(true);
-              }}
-            >
-              <CategoryMarker type={p.type} />
-            </AdvancedMarker>
-          ))}
+          {places.map(p => {
+            const matchType = activeType === '全部' || p.type?.trim() === activeType;
+            const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                p.address.toLowerCase().includes(searchQuery.toLowerCase());
+            const visible = matchType && matchSearch;
+            return (
+              <AdvancedMarker
+                key={p.place_id}
+                position={{ lat: p.lat, lng: p.lng }}
+                onClick={() => {
+                  if (!visible) return;
+                  setSelectedPlace(p);
+                  setIsBottomSheetOpen(true);
+                }}
+              >
+                <div style={{ display: visible ? 'block' : 'none' }}>
+                  <CategoryMarker type={p.type} />
+                </div>
+              </AdvancedMarker>
+            );
+          })}
         </Map>
 
         {/* 頂部搜尋與分類 */}
