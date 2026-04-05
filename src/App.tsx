@@ -5,11 +5,10 @@ import {
   AdvancedMarker,
   useMap,
 } from '@vis.gl/react-google-maps'
-import { Navigation, Search, Star, Coffee, Utensils, Dessert, Palette, MapPin, Tent, ShoppingBag, MessageSquare, X, LocateFixed } from 'lucide-react'
+import { Search, Star, Coffee, Utensils, Dessert, Palette, MapPin, Tent, MessageSquare, X, LocateFixed } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Place, PlaceType } from './types'
 
-// 設定環境變數
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const GOOGLE_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID;
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
@@ -71,10 +70,12 @@ const MapController = ({ userLocation, initialLocateDone, setInitialLocateDone }
   return null;
 };
 
-const UserTracker = ({ initialLocateDone, setInitialLocateDone }: { initialLocateDone: boolean, setInitialLocateDone: (done: boolean) => void }) => {
+const UserTracker = ({ requestTracking, initialLocateDone, setInitialLocateDone }: { requestTracking: boolean, initialLocateDone: boolean, setInitialLocateDone: (done: boolean) => void }) => {
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
+    if (!requestTracking) return;
+
     if (navigator.geolocation) {
       const id = navigator.geolocation.watchPosition(
         (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
@@ -83,7 +84,7 @@ const UserTracker = ({ initialLocateDone, setInitialLocateDone }: { initialLocat
       );
       return () => navigator.geolocation.clearWatch(id);
     }
-  }, []);
+  }, [requestTracking]);
 
   return (
     <>
@@ -107,8 +108,24 @@ const App = () => {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [initialLocateDone, setInitialLocateDone] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
   const [activeType, setActiveType] = useState<PlaceType | '全部'>('全部');
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+  const [requestTracking, setRequestTracking] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' }).then(res => {
+          if (res.state === 'granted') {
+            setRequestTracking(true);
+          }
+        }).catch(e => console.warn(e));
+      }
+    } catch (error) {
+      console.warn('Permissions API not fully supported', error);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -116,16 +133,37 @@ const App = () => {
         const response = await fetch(APPS_SCRIPT_URL, { method: 'GET', redirect: 'follow' });
         const data = await response.json();
         if (data.error) return;
-        const validPlaces = (Array.isArray(data) ? data : [])
+        const rawPlaces = (Array.isArray(data) ? data : [])
           .filter(p => p.name && p.lat && p.lng)
           .map(p => ({
             ...p,
+            type: (p.type || '').trim(), // 預先 trim，避免後續比對問題
             lat: parseFloat(p.lat),
             lng: parseFloat(p.lng),
             rating: p.rating ? parseFloat(p.rating) : 0,
             reviews: p.reviews ? parseInt(p.reviews) : 0
           }));
-        setPlaces(validPlaces);
+
+        // 去除重複：同一個 place_id 只保留第一筆
+        const seen = new Set<string>();
+        const uniquePlaces = rawPlaces.filter(p => {
+          const key = p.place_id || `${p.name}-${p.lat}-${p.lng}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        console.log(`[FoodMap] 原始 ${rawPlaces.length} 筆 → 去重後 ${uniquePlaces.length} 筆`);
+        
+        // Debug: 印出各分類的數量
+        const typeCounts: Record<string, number> = {};
+        uniquePlaces.forEach(p => {
+          const t = p.type || '(無分類)';
+          typeCounts[t] = (typeCounts[t] || 0) + 1;
+        });
+        console.log('[FoodMap] 各分類數量:', typeCounts);
+
+        setPlaces(uniquePlaces);
       } catch (err) {
         console.error('[FoodMap] Fetch error:', err);
       } finally {
@@ -136,12 +174,15 @@ const App = () => {
   }, []);
 
   const filteredPlaces = useMemo(() => {
-    return places.filter(p => {
-      const matchType = activeType === '全部' || p.type?.trim() === activeType;
-      const matchSearch = (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const result = places.filter(p => {
+      const matchType = activeType === '全部' || p.type === activeType;
+      const matchSearch = !searchQuery || 
+                          (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                           (p.address || '').toLowerCase().includes(searchQuery.toLowerCase());
       return matchType && matchSearch;
     });
+    console.log(`[FoodMap] 篩選 "${activeType}" → ${result.length} 筆`);
+    return result;
   }, [places, activeType, searchQuery]);
 
   return (
@@ -152,20 +193,21 @@ const App = () => {
           defaultCenter={{ lat: 25.0330, lng: 121.5654 }}
           defaultZoom={15}
           disableDefaultUI={true}
+          colorScheme="DARK"
           className="w-full h-full"
           styles={[
             {
               featureType: "poi",
-              elementType: "labels",
+              elementType: "all",
               stylers: [{ visibility: "off" }]
             }
           ]}
         >
-          <UserTracker initialLocateDone={initialLocateDone} setInitialLocateDone={setInitialLocateDone} />
+          <UserTracker requestTracking={requestTracking} initialLocateDone={initialLocateDone} setInitialLocateDone={setInitialLocateDone} />
 
-          {filteredPlaces.map(p => (
+          {filteredPlaces.map((p) => (
             <AdvancedMarker
-              key={p.place_id}
+              key={p.place_id || `${p.name}-${p.lat}-${p.lng}`}
               position={{ lat: p.lat, lng: p.lng }}
               onClick={() => {
                 setSelectedPlace(p);
@@ -179,21 +221,67 @@ const App = () => {
 
         {/* 頂部搜尋與分類 */}
         <div className="absolute top-4 inset-x-4 z-40 flex flex-col gap-3">
-          <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="glass rounded-2xl flex items-center px-4 py-3.5 gap-3">
-            <Search className="w-5 h-5 text-zinc-400" />
-            <input 
-              type="text" placeholder="探索週邊美食..."
-              value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500 text-base"
-            />
-            {loading && <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />}
-          </motion.div>
+          <div className="relative">
+            <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="glass rounded-2xl flex items-center px-4 py-3.5 gap-3 relative z-50">
+              <Search className="w-5 h-5 text-zinc-400" />
+              <input 
+                type="text" placeholder="探索週邊美食..."
+                value={searchQuery} 
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500 text-base"
+              />
+              {loading && <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />}
+            </motion.div>
+            
+            {/* 搜尋下拉選單 */}
+            <AnimatePresence>
+              {showDropdown && searchQuery && filteredPlaces.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-full left-0 right-0 mt-2 glass-heavy rounded-2xl overflow-hidden max-h-60 overflow-y-auto flex flex-col z-40 border border-white/10 shadow-2xl origin-top"
+                >
+                  {filteredPlaces.slice(0, 5).map(p => (
+                    <button
+                      key={p.place_id}
+                      onClick={() => {
+                        setSelectedPlace(p);
+                        setIsBottomSheetOpen(true);
+                        setShowDropdown(false);
+                        setSearchQuery(p.name || '');
+                      }}
+                      className="px-4 py-3.5 text-left hover:bg-white/10 transition-all duration-200 flex items-center gap-3 border-b border-white/5 last:border-b-0"
+                    >
+                      <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
+                      <div className="flex flex-col">
+                        <span className="text-white text-sm font-medium">{p.name}</span>
+                        <span className="text-zinc-500 text-xs truncate">{p.address}</span>
+                      </div>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+            <div className="px-5 py-2 rounded-xl text-sm font-semibold glass text-indigo-300 border border-white/5 shrink-0">
+              共 {filteredPlaces.length} 筆
+            </div>
             {['全部', '餐廳', '咖啡廳', '甜點', '藝術', '景點', '夜市'].map((type) => (
               <button
                 key={type}
-                onClick={() => setActiveType(type as any)}
+                onClick={() => {
+                  setActiveType(type as any);
+                  setSearchQuery('');
+                  setSelectedPlace(null);
+                  setIsBottomSheetOpen(false);
+                }}
                 className={`px-5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-300 border ${
                   activeType === type ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : 'glass text-zinc-400 border-white/5'
                 }`}
@@ -206,7 +294,13 @@ const App = () => {
 
         {/* 定位鈕 */}
         <div className="absolute bottom-40 right-4 z-40">
-          <button onClick={() => setInitialLocateDone(false)} className="w-12 h-12 glass rounded-2xl flex items-center justify-center text-indigo-400 shadow-xl">
+          <button 
+            onClick={() => {
+              setInitialLocateDone(false);
+              setRequestTracking(true);
+            }} 
+            className="w-12 h-12 glass rounded-2xl flex items-center justify-center text-indigo-400 shadow-xl active:scale-95 transition-all duration-200"
+          >
             <LocateFixed className="w-6 h-6" />
           </button>
         </div>
