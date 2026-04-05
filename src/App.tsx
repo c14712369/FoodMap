@@ -1,100 +1,66 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import {
   APIProvider,
   Map,
   AdvancedMarker,
   useMap,
 } from '@vis.gl/react-google-maps'
-import { Search, Star, Coffee, Utensils, Dessert, Palette, MapPin, Tent, MessageSquare, X, LocateFixed } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import type { Place, PlaceType } from './types'
+import { AnimatePresence } from 'framer-motion'
+import { usePlaces } from './hooks/usePlaces'
+import { useIconSettings } from './hooks/useIconSettings'
+import CategoryMarker from './components/CategoryMarker'
+import SearchBar from './components/SearchBar'
+import CategoryFilter from './components/CategoryFilter'
+import PlaceSheet from './components/PlaceSheet'
+import LocateButton from './components/LocateButton'
+import LoadingSkeleton from './components/LoadingSkeleton'
+import IconPicker from './components/IconPicker'
+import type { Place } from './types'
+import type { AvailableIconName } from './constants/categories'
 
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-const GOOGLE_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID;
-const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
+const GOOGLE_MAP_ID  = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID;
 
-
-const typeConfig: Record<string, { icon: any, color: string, bg: string }> = {
-  '餐廳': { icon: Utensils, color: 'text-orange-500', bg: 'bg-orange-500/20' },
-  '咖啡廳': { icon: Coffee, color: 'text-amber-600', bg: 'bg-amber-600/20' },
-  '甜點': { icon: Dessert, color: 'text-pink-500', bg: 'bg-pink-500/20' },
-  '藝術': { icon: Palette, color: 'text-purple-500', bg: 'bg-purple-500/20' },
-  '景點': { icon: Tent, color: 'text-emerald-500', bg: 'bg-emerald-500/20' },
-  '夜市': { icon: MapPin, color: 'text-red-500', bg: 'bg-red-500/20' },
-  '預設': { icon: MapPin, color: 'text-blue-500', bg: 'bg-blue-500/20' }
-};
-
-const categoryColors: Record<string, string> = {
-  '餐廳': '#f97316',
-  '咖啡廳': '#d97706',
-  '甜點': '#ec4899',
-  '藝術': '#a855f7',
-  '景點': '#10b981',
-  '夜市': '#ef4444',
-  '預設': '#6366f1',
-};
-
-const CategoryMarker = ({ type }: { type: string }) => {
-  const config = typeConfig[type?.trim()] || typeConfig['預設'];
-  const Icon = config.icon;
-  const color = categoryColors[type?.trim()] || categoryColors['預設'];
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: '50%',
-        backgroundColor: color, border: '2.5px solid white',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
-      }}>
-        <Icon size={17} color="white" strokeWidth={2.5} />
-      </div>
-      <div style={{
-        width: 0, height: 0, marginTop: -1,
-        borderLeft: '5px solid transparent',
-        borderRight: '5px solid transparent',
-        borderTop: `7px solid ${color}`,
-      }} />
-    </div>
-  );
-};
-
-const MapController = ({ userLocation, initialLocateDone, setInitialLocateDone }: any) => {
+// ─── 定位追蹤子元件 ───────────────────────────────────────
+const MapController = ({ userLocation, done, setDone }: any) => {
   const map = useMap();
   useEffect(() => {
-    if (map && userLocation && !initialLocateDone) {
+    if (map && userLocation && !done) {
       map.panTo(userLocation);
       map.setZoom(15);
-      setInitialLocateDone(true);
+      setDone(true);
     }
-  }, [map, userLocation, initialLocateDone, setInitialLocateDone]);
+  }, [map, userLocation, done, setDone]);
   return null;
 };
 
-const UserTracker = ({ requestTracking, initialLocateDone, setInitialLocateDone }: { requestTracking: boolean, initialLocateDone: boolean, setInitialLocateDone: (done: boolean) => void }) => {
-  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+const UserTracker = ({ active, done, setDone }: {
+  active: boolean;
+  done: boolean;
+  setDone: (v: boolean) => void;
+}) => {
+  const [loc, setLoc] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
-    if (!requestTracking) return;
-
-    if (navigator.geolocation) {
-      const id = navigator.geolocation.watchPosition(
-        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => console.warn(err),
-        { enableHighAccuracy: true }
-      );
-      return () => navigator.geolocation.clearWatch(id);
-    }
-  }, [requestTracking]);
+    if (!active) return;
+    if (!navigator.geolocation) return;
+    const id = navigator.geolocation.watchPosition(
+      pos => setLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      err => console.warn(err),
+      { enableHighAccuracy: true },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, [active]);
 
   return (
     <>
-      <MapController userLocation={userLocation} initialLocateDone={initialLocateDone} setInitialLocateDone={setInitialLocateDone} />
-      {userLocation && (
-        <AdvancedMarker position={userLocation}>
+      <MapController userLocation={loc} done={done} setDone={setDone} />
+      {loc && (
+        <AdvancedMarker position={loc}>
           <div style={{
             width: 16, height: 16, borderRadius: '50%',
             backgroundColor: '#3b82f6', border: '3px solid white',
-            boxShadow: '0 0 0 3px rgba(59,130,246,0.35)',
+            boxShadow: '0 0 0 4px rgba(59,130,246,0.3)',
           }} />
         </AdvancedMarker>
       )}
@@ -102,258 +68,128 @@ const UserTracker = ({ requestTracking, initialLocateDone, setInitialLocateDone 
   );
 };
 
+// ─── 主元件 ───────────────────────────────────────────────
 const App = () => {
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  const [initialLocateDone, setInitialLocateDone] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [activeType, setActiveType] = useState<PlaceType | '全部'>('全部');
-  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
-  const [requestTracking, setRequestTracking] = useState(false);
+  const [activeType, setActiveType]           = useState<string>('全部');
+  const [searchQuery, setSearchQuery]         = useState('');
+  const [selectedPlace, setSelectedPlace]     = useState<Place | null>(null);
+  const [isSheetOpen, setIsSheetOpen]         = useState(false);
+  const [trackingActive, setTrackingActive]   = useState(false);
+  const [locateDone, setLocateDone]           = useState(false);
+  const [iconPickerType, setIconPickerType]   = useState<string | null>(null);
 
+  const { filteredPlaces, typeCounts, loading } = usePlaces(activeType, searchQuery);
+  const { customIcons, setIconForType, resetIconForType } = useIconSettings();
+
+  // 自動偵測已授權的定位
   useEffect(() => {
     try {
-      if (navigator.permissions && navigator.permissions.query) {
-        navigator.permissions.query({ name: 'geolocation' }).then(res => {
-          if (res.state === 'granted') {
-            setRequestTracking(true);
-          }
-        }).catch(e => console.warn(e));
-      }
-    } catch (error) {
-      console.warn('Permissions API not fully supported', error);
-    }
+      navigator.permissions?.query({ name: 'geolocation' }).then(res => {
+        if (res.state === 'granted') setTrackingActive(true);
+      }).catch(() => {});
+    } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch(APPS_SCRIPT_URL, { method: 'GET', redirect: 'follow' });
-        const data = await response.json();
-        if (data.error) return;
-        const rawPlaces = (Array.isArray(data) ? data : [])
-          .filter(p => p.name && p.lat && p.lng)
-          .map(p => ({
-            ...p,
-            type: (p.type || '').trim(), // 預先 trim，避免後續比對問題
-            lat: parseFloat(p.lat),
-            lng: parseFloat(p.lng),
-            rating: p.rating ? parseFloat(p.rating) : 0,
-            reviews: p.reviews ? parseInt(p.reviews) : 0
-          }));
+  const handleSelectPlace = (place: Place) => {
+    setSelectedPlace(place);
+    setIsSheetOpen(true);
+  };
 
-        // 去除重複：同一個 place_id 只保留第一筆
-        const seen = new Set<string>();
-        const uniquePlaces = rawPlaces.filter(p => {
-          const key = p.place_id || `${p.name}-${p.lat}-${p.lng}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
+  const handleLocate = () => {
+    setLocateDone(false);
+    setTrackingActive(true);
+  };
 
-        console.log(`[FoodMap] 原始 ${rawPlaces.length} 筆 → 去重後 ${uniquePlaces.length} 筆`);
-        
-        // Debug: 印出各分類的數量
-        const typeCounts: Record<string, number> = {};
-        uniquePlaces.forEach(p => {
-          const t = p.type || '(無分類)';
-          typeCounts[t] = (typeCounts[t] || 0) + 1;
-        });
-        console.log('[FoodMap] 各分類數量:', typeCounts);
+  const handleSelectCategory = (type: string) => {
+    setActiveType(type);
+    setSearchQuery('');
+    setSelectedPlace(null);
+    setIsSheetOpen(false);
+  };
 
-        setPlaces(uniquePlaces);
-      } catch (err) {
-        console.error('[FoodMap] Fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  const filteredPlaces = useMemo(() => {
-    const result = places.filter(p => {
-      const matchType = activeType === '全部' || p.type === activeType;
-      const matchSearch = !searchQuery || 
-                          (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (p.address || '').toLowerCase().includes(searchQuery.toLowerCase());
-      return matchType && matchSearch;
-    });
-    console.log(`[FoodMap] 篩選 "${activeType}" → ${result.length} 筆`);
-    return result;
-  }, [places, activeType, searchQuery]);
+  const totalCount = Object.values(typeCounts).reduce((a, b) => a + b, 0);
+  const currentPickerIconName = iconPickerType ? customIcons[iconPickerType] : undefined;
 
   return (
     <div className="fixed inset-0 w-full h-full bg-zinc-950 overflow-hidden font-inter">
       <APIProvider apiKey={GOOGLE_API_KEY}>
+
+        {/* 地圖 */}
         <Map
           mapId={GOOGLE_MAP_ID}
           defaultCenter={{ lat: 25.0330, lng: 121.5654 }}
           defaultZoom={15}
-          disableDefaultUI={true}
+          disableDefaultUI
           colorScheme="DARK"
           className="w-full h-full"
-          styles={[
-            {
-              featureType: "poi",
-              elementType: "all",
-              stylers: [{ visibility: "off" }]
-            }
-          ]}
         >
-          <UserTracker requestTracking={requestTracking} initialLocateDone={initialLocateDone} setInitialLocateDone={setInitialLocateDone} />
+          <UserTracker active={trackingActive} done={locateDone} setDone={setLocateDone} />
 
-          {filteredPlaces.map((p) => (
+          {filteredPlaces.map(p => (
             <AdvancedMarker
               key={p.place_id || `${p.name}-${p.lat}-${p.lng}`}
               position={{ lat: p.lat, lng: p.lng }}
-              onClick={() => {
-                setSelectedPlace(p);
-                setIsBottomSheetOpen(true);
-              }}
+              onClick={() => handleSelectPlace(p)}
             >
-              <CategoryMarker type={p.type} />
+              <CategoryMarker
+                type={p.type}
+                customIconName={customIcons[p.type] as AvailableIconName | undefined}
+              />
             </AdvancedMarker>
           ))}
         </Map>
 
-        {/* 頂部搜尋與分類 */}
-        <div className="absolute top-4 inset-x-4 z-40 flex flex-col gap-3">
-          <div className="relative">
-            <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="glass rounded-2xl flex items-center px-4 py-3.5 gap-3 relative z-50">
-              <Search className="w-5 h-5 text-zinc-400" />
-              <input 
-                type="text" placeholder="探索週邊美食..."
-                value={searchQuery} 
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setShowDropdown(true);
-                }}
-                onFocus={() => setShowDropdown(true)}
-                className="bg-transparent border-none outline-none flex-1 text-white placeholder-zinc-500 text-base"
-              />
-              {loading && <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />}
-            </motion.div>
-            
-            {/* 搜尋下拉選單 */}
-            <AnimatePresence>
-              {showDropdown && searchQuery && filteredPlaces.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-full left-0 right-0 mt-2 glass-heavy rounded-2xl overflow-hidden max-h-60 overflow-y-auto flex flex-col z-40 border border-white/10 shadow-2xl origin-top"
-                >
-                  {filteredPlaces.slice(0, 5).map(p => (
-                    <button
-                      key={p.place_id}
-                      onClick={() => {
-                        setSelectedPlace(p);
-                        setIsBottomSheetOpen(true);
-                        setShowDropdown(false);
-                        setSearchQuery(p.name || '');
-                      }}
-                      className="px-4 py-3.5 text-left hover:bg-white/10 transition-all duration-200 flex items-center gap-3 border-b border-white/5 last:border-b-0"
-                    >
-                      <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="text-white text-sm font-medium">{p.name}</span>
-                        <span className="text-zinc-500 text-xs truncate">{p.address}</span>
-                      </div>
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-            <div className="px-5 py-2 rounded-xl text-sm font-semibold glass text-indigo-300 border border-white/5 shrink-0">
-              共 {filteredPlaces.length} 筆
-            </div>
-            {['全部', '餐廳', '咖啡廳', '甜點', '藝術', '景點', '夜市'].map((type) => (
-              <button
-                key={type}
-                onClick={() => {
-                  setActiveType(type as any);
-                  setSearchQuery('');
-                  setSelectedPlace(null);
-                  setIsBottomSheetOpen(false);
-                }}
-                className={`px-5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-300 border ${
-                  activeType === type ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : 'glass text-zinc-400 border-white/5'
-                }`}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
+        {/* 頂部 UI */}
+        <div className="absolute top-4 inset-x-4 z-40 flex flex-col gap-2.5">
+          <SearchBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            filteredPlaces={filteredPlaces}
+            loading={loading}
+            onSelectPlace={handleSelectPlace}
+          />
+          <CategoryFilter
+            activeType={activeType}
+            typeCounts={typeCounts}
+            customIcons={customIcons as Record<string, AvailableIconName>}
+            totalCount={totalCount}
+            onSelect={handleSelectCategory}
+            onOpenIconPicker={type => setIconPickerType(type)}
+          />
         </div>
 
-        {/* 定位鈕 */}
-        <div className="absolute bottom-40 right-4 z-40">
-          <button 
-            onClick={() => {
-              setInitialLocateDone(false);
-              setRequestTracking(true);
-            }} 
-            className="w-12 h-12 glass rounded-2xl flex items-center justify-center text-indigo-400 shadow-xl active:scale-95 transition-all duration-200"
-          >
-            <LocateFixed className="w-6 h-6" />
-          </button>
-        </div>
+        {/* 定位按鈕 */}
+        <LocateButton onClick={handleLocate} />
 
-        {/* 詳情抽屜 */}
+        {/* 底部詳情抽屜 */}
+        <PlaceSheet
+          place={selectedPlace}
+          isOpen={isSheetOpen}
+          onClose={() => setIsSheetOpen(false)}
+        />
+
+        {/* Icon Picker Modal */}
+        <IconPicker
+          isOpen={iconPickerType !== null}
+          targetType={iconPickerType}
+          currentIconName={currentPickerIconName as AvailableIconName | undefined}
+          onSelect={name => {
+            if (iconPickerType) setIconForType(iconPickerType, name);
+          }}
+          onReset={() => {
+            if (iconPickerType) resetIconForType(iconPickerType);
+          }}
+          onClose={() => setIconPickerType(null)}
+        />
+
+        {/* 全畫面載入動畫 */}
         <AnimatePresence>
-          {selectedPlace && isBottomSheetOpen && (
-            <>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsBottomSheetOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-20" />
-              <motion.div
-                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-                className="absolute bottom-0 inset-x-0 glass-heavy rounded-t-[32px] z-30 pb-safe border-t border-white/10"
-              >
-                <div className="w-12 h-1.5 bg-zinc-700/50 rounded-full mx-auto mt-3 mb-5" />
-                <div className="px-6 pb-8">
-                  <div className="flex justify-between items-start gap-4 mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase ${(typeConfig[selectedPlace.type?.trim()] || typeConfig['預設']).bg} ${(typeConfig[selectedPlace.type?.trim()] || typeConfig['預設']).color}`}>
-                          {selectedPlace.type}
-                        </span>
-                      </div>
-                      <h2 className="text-2xl font-bold text-white font-plus leading-tight mb-1">{selectedPlace.name}</h2>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1 text-yellow-500">
-                          <Star className="w-4 h-4 fill-yellow-500" />
-                          <span className="font-bold text-sm">{selectedPlace.rating}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-zinc-400 text-sm">
-                          <MessageSquare className="w-3.5 h-3.5" />
-                          <span>{selectedPlace.reviews} 則評論</span>
-                        </div>
-                      </div>
-                    </div>
-                    <button onClick={() => setIsBottomSheetOpen(false)} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-zinc-400"><X className="w-5 h-5" /></button>
-                  </div>
-                  <div className="flex items-start gap-2 mb-8 p-3.5 rounded-2xl bg-white/5 border border-white/5">
-                    <MapPin className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
-                    <p className="text-zinc-300 text-sm leading-relaxed">{selectedPlace.address}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <a href={selectedPlace.url} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2.5 bg-indigo-600 text-white h-14 rounded-2xl font-bold shadow-xl">立即導航</a>
-                    <button className="flex items-center justify-center gap-2.5 glass-light text-white h-14 rounded-2xl font-bold border border-white/10">儲存地點</button>
-                  </div>
-                </div>
-              </motion.div>
-            </>
-          )}
+          {loading && <LoadingSkeleton />}
         </AnimatePresence>
+
       </APIProvider>
     </div>
-  )
-}
+  );
+};
 
-export default App
+export default App;
