@@ -71,11 +71,40 @@ const MapController = ({ userLocation, initialLocateDone, setInitialLocateDone }
   return null;
 };
 
+const UserTracker = ({ initialLocateDone, setInitialLocateDone }: { initialLocateDone: boolean, setInitialLocateDone: (done: boolean) => void }) => {
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      const id = navigator.geolocation.watchPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => console.warn(err),
+        { enableHighAccuracy: true }
+      );
+      return () => navigator.geolocation.clearWatch(id);
+    }
+  }, []);
+
+  return (
+    <>
+      <MapController userLocation={userLocation} initialLocateDone={initialLocateDone} setInitialLocateDone={setInitialLocateDone} />
+      {userLocation && (
+        <AdvancedMarker position={userLocation}>
+          <div style={{
+            width: 16, height: 16, borderRadius: '50%',
+            backgroundColor: '#3b82f6', border: '3px solid white',
+            boxShadow: '0 0 0 3px rgba(59,130,246,0.35)',
+          }} />
+        </AdvancedMarker>
+      )}
+    </>
+  );
+};
+
 const App = () => {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [initialLocateDone, setInitialLocateDone] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeType, setActiveType] = useState<PlaceType | '全部'>('全部');
@@ -106,21 +135,11 @@ const App = () => {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.watchPosition(
-        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => console.warn(err),
-        { enableHighAccuracy: true }
-      );
-    }
-  }, []);
-
   const filteredPlaces = useMemo(() => {
     return places.filter(p => {
       const matchType = activeType === '全部' || p.type?.trim() === activeType;
-      const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          p.address.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchSearch = (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (p.address || '').toLowerCase().includes(searchQuery.toLowerCase());
       return matchType && matchSearch;
     });
   }, [places, activeType, searchQuery]);
@@ -134,40 +153,28 @@ const App = () => {
           defaultZoom={15}
           disableDefaultUI={true}
           className="w-full h-full"
+          styles={[
+            {
+              featureType: "poi",
+              elementType: "labels",
+              stylers: [{ visibility: "off" }]
+            }
+          ]}
         >
-          <MapController userLocation={userLocation} initialLocateDone={initialLocateDone} setInitialLocateDone={setInitialLocateDone} />
+          <UserTracker initialLocateDone={initialLocateDone} setInitialLocateDone={setInitialLocateDone} />
 
-          {userLocation && (
-            <AdvancedMarker position={userLocation}>
-              <div style={{
-                width: 16, height: 16, borderRadius: '50%',
-                backgroundColor: '#3b82f6', border: '3px solid white',
-                boxShadow: '0 0 0 3px rgba(59,130,246,0.35)',
-              }} />
+          {filteredPlaces.map(p => (
+            <AdvancedMarker
+              key={p.place_id}
+              position={{ lat: p.lat, lng: p.lng }}
+              onClick={() => {
+                setSelectedPlace(p);
+                setIsBottomSheetOpen(true);
+              }}
+            >
+              <CategoryMarker type={p.type} />
             </AdvancedMarker>
-          )}
-
-          {places.map(p => {
-            const matchType = activeType === '全部' || p.type?.trim() === activeType;
-            const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                p.address.toLowerCase().includes(searchQuery.toLowerCase());
-            const visible = matchType && matchSearch;
-            return (
-              <AdvancedMarker
-                key={p.place_id}
-                position={{ lat: p.lat, lng: p.lng }}
-                onClick={() => {
-                  if (!visible) return;
-                  setSelectedPlace(p);
-                  setIsBottomSheetOpen(true);
-                }}
-              >
-                <div style={{ display: visible ? 'block' : 'none' }}>
-                  <CategoryMarker type={p.type} />
-                </div>
-              </AdvancedMarker>
-            );
-          })}
+          ))}
         </Map>
 
         {/* 頂部搜尋與分類 */}
